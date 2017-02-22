@@ -28,8 +28,10 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 	private IAmazonDynamoDB _client;
 	private DynamoDBContext _context;
 
-	public GameObject SnortDataContainer;
+	public GameObject SnortDataPanel;
 	public GameObject SnortDataPrefab;
+	public GameObject SensorTagPanel;
+	public GameObject SensorTagPrefab;
 
 	AmazonDynamoDBClient client;
 
@@ -45,7 +47,7 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 	public void displaySnortData(List<SnortData> allSnortData)
 	{
 
-		foreach (Transform childTransform in SnortDataContainer.transform)
+		foreach (Transform childTransform in SnortDataPanel.transform)
 		{
 			Destroy(childTransform.gameObject);
 		}
@@ -55,7 +57,7 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 		foreach (SnortData snortData in allSnortData)
 		{
 			GameObject option = (GameObject)GameObject.Instantiate (SnortDataPrefab);
-			option.transform.SetParent(SnortDataContainer.transform, false);
+			option.transform.SetParent(SnortDataPanel.transform, false);
 
 			Debug.Log (i + ": " +snortData.sensor);
 
