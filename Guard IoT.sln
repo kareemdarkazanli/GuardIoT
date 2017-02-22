@@ -1,0 +1,23 @@
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2008
+
+Project("{96D19C32-AE14-B481-4BF8-2F976F419FA0}") = "Guard IoT", "Assembly-CSharp.csproj", "{DF972BC6-CDFF-F4A0-4052-C869DCD474E7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DF972BC6-CDFF-F4A0-4052-C869DCD474E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DF972BC6-CDFF-F4A0-4052-C869DCD474E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DF972BC6-CDFF-F4A0-4052-C869DCD474E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DF972BC6-CDFF-F4A0-4052-C869DCD474E7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(MonoDevelopProperties) = preSolution
+		StartupItem = Assembly-CSharp.csproj
+	EndGlobalSection
+EndGlobal
