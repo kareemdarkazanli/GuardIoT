@@ -41,7 +41,7 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 		UnityInitializer.AttachToGameObject (this.gameObject);
 		var credentials = new BasicAWSCredentials("AKIAJIFWBWNXDKUAHRWA", "nDRoggu6qHBO4Do2Qh6Gdr/laope1XK0YDAr3s5y");		
 		client = new AmazonDynamoDBClient(credentials, RegionEndpoint.USWest2);
-		RetrieveSnortData ();
+		RetrieveSensorTag ();
 	}
 
 	public void displaySnortData(List<SnortData> allSnortData)
@@ -111,10 +111,60 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 		[DynamoDBProperty]
 		public int sourcePort { get; set; }
 	}
+
+
 	#endregion
 
 
 	#region retrieve dynamoDB data
+
+	private void RetrieveSensorTag()
+	{
+		var request = new ScanRequest
+		{
+			TableName = "SensorTag",
+		};
+
+		client.ScanAsync (request, (result) => {
+			foreach (var item in result.Response.Items)
+			{
+				foreach (var kvp in item)
+				{
+					string attributeName = kvp.Key;
+					AttributeValue value = kvp.Value;
+					//Debug.Log(value.M.Keys.ToString);
+					if(value.IsMSet){
+						foreach(var key in value.M.Keys){
+							foreach(var val in value.M.Values){
+								if(val.IsMSet){
+									foreach(var k in val.M){
+										//Debug.Log(k.Key);
+										AttributeValue valu;
+										Debug.Log((val.M.TryGetValue(k.Key, out valu)));
+										Debug.Log(valu.N);
+									}
+								}
+
+							}
+							//if(value.M.Values)
+							//Debug.Log(value.M.Values);
+
+						}
+					}
+					Debug.Log 
+						(
+							"\n" + attributeName + " " +
+							(value.S == null ? "" : "S=[" + value.S + "]") +
+							(value.N == null ? "" : "N=[" + value.N + "]") +
+							(value.SS == null ? "" : "SS=[" + string.Join(",", value.SS.ToArray()) + "]") +
+							(value.NS == null ? "" : "NS=[" + string.Join(",", value.NS.ToArray()) + "]")
+						);
+				}
+
+			}
+		});
+	}
+
 	private void RetrieveSnortData()
 	{
 		var request = new ScanRequest
@@ -197,7 +247,7 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 				}
 				allSnortData.Add(snortData);
 			}
-			displaySnortData(allSnortData);
+			//displaySnortData(allSnortData);
 		});
 	}
 
