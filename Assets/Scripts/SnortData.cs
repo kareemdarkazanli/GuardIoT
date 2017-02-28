@@ -14,4 +14,6 @@ public class SnortData : MonoBehaviour {
 	public string destinationIP = "";
 	public string sourceIP = "";
 	public string eventTimeStamp = "";
+
+
 }

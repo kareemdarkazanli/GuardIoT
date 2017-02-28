@@ -28,10 +28,12 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 	private IAmazonDynamoDB _client;
 	private DynamoDBContext _context;
 
-	public GameObject SnortDataPanel;
-	public GameObject SnortDataPrefab;
+	public GameObject SensorTagDataPanel;
+	public GameObject SensorTagDataPrefab;
 	public GameObject SensorTagPanel;
 	public GameObject SensorTagPrefab;
+
+	private int currentTag = 0;
 
 	AmazonDynamoDBClient client;
 
@@ -42,12 +44,30 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 		var credentials = new BasicAWSCredentials("AKIAJIFWBWNXDKUAHRWA", "nDRoggu6qHBO4Do2Qh6Gdr/laope1XK0YDAr3s5y");		
 		client = new AmazonDynamoDBClient(credentials, RegionEndpoint.USWest2);
 		RetrieveSensorTag ();
+
+	}
+
+	public void displaySensorData(List<SensorTag> allSensorTags){
+		foreach (Transform childTransform in SensorTagPanel.transform)
+		{
+			Destroy(childTransform.gameObject);
+		}
+
+		GameObject accX = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
+		accX.transform.SetParent(SensorTagDataPanel.transform, false);
+		accX.transform.GetComponentInChildren<Text> ().text = "\t" + allSensorTags[currentTag].accx;
+
+		GameObject accY = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
+		accY.transform.SetParent(SensorTagDataPanel.transform, false);
+		accY.transform.GetComponentInChildren<Text> ().text = "\t" + allSensorTags[currentTag].accy;
+
+
 	}
 
 	public void displaySnortData(List<SnortData> allSnortData)
 	{
 
-		foreach (Transform childTransform in SnortDataPanel.transform)
+		foreach (Transform childTransform in SensorTagDataPanel.transform)
 		{
 			Destroy(childTransform.gameObject);
 		}
@@ -56,11 +76,10 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 
 		foreach (SnortData snortData in allSnortData)
 		{
-			GameObject option = (GameObject)GameObject.Instantiate (SnortDataPrefab);
-			option.transform.SetParent(SnortDataPanel.transform, false);
+			GameObject option = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
+			option.transform.SetParent(SensorTagDataPanel.transform, false);
 
 			Debug.Log (i + ": " +snortData.sensor);
-
 
 
 			//Debug.Log (snortData.sensor);
@@ -126,42 +145,158 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 		};
 
 		client.ScanAsync (request, (result) => {
+			List<SensorTag> allSensorTags = new List<SensorTag>();
+
+
 			foreach (var item in result.Response.Items)
 			{
+
+				SensorTag sensorTag = new SensorTag();
 				foreach (var kvp in item)
 				{
 					string attributeName = kvp.Key;
 					AttributeValue value = kvp.Value;
-					//Debug.Log(value.M.Keys.ToString);
 					if(value.IsMSet){
 						foreach(var key in value.M.Keys){
+
 							foreach(var val in value.M.Values){
 								if(val.IsMSet){
 									foreach(var k in val.M){
-										//Debug.Log(k.Key);
 										AttributeValue valu;
-										Debug.Log((val.M.TryGetValue(k.Key, out valu)));
-										Debug.Log(valu.N);
+										val.M.TryGetValue(k.Key, out valu);
+
+										if(k.Key.Trim() == "Air Pressure (hPa)"){
+											sensorTag.airpressure = k.Key + ": " + valu.N;
+											//Debug.Log(sensorTag.airpressure);
+									
+										}
+										else if(k.Key.Trim() == "RSSI (dBm)"){
+											sensorTag.rssi = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.rssi);
+
+										}
+										else if(k.Key.Trim() == "Light (lux)"){
+											sensorTag.light = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.light);
+
+										}
+										else if(k.Key.Trim() == "Seq #"){
+											sensorTag.seq = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.seq);
+
+										}
+										else if(k.Key.Trim() == "Air Temp (C)"){
+											sensorTag.airtemp = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.airtemp);
+
+										}
+										else if(k.Key.Trim() == "Object Temp (C)"){
+											sensorTag.objecttemp = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.objecttemp);
+
+										}
+										else if(k.Key.Trim() == "Acc Y (G)"){
+											sensorTag.accy = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.accy);
+
+										}
+										else if(k.Key.Trim() == "Gyro Z (deg per sec)"){
+											sensorTag.gyroz = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.gyroz);
+
+										}
+										else if(k.Key.Trim() == "Gyro X (deg per sec)"){
+											sensorTag.gyrox = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.gyrox);
+										}
+										else if(k.Key.Trim() == "HDC Humidity (%RH)"){
+											sensorTag.hdchumidity = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.hdchumidity);
+
+										}
+										else if(k.Key.Trim() == "Uptime (sec)"){
+											sensorTag.uptime = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.uptime);
+
+										}
+										else if(k.Key.Trim() == "defRoute"){
+											sensorTag.defroute = k.Key + ": " + valu.S;
+
+											//Debug.Log(sensorTag.defroute);
+
+										}
+										else if(k.Key.Trim() == "Battery Temp (C)"){
+											sensorTag.batterytemsp = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.batterytemsp);
+
+										}
+										else if(k.Key.Trim() == "HDC Temp (C)"){
+											sensorTag.hdctemp = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.hdctemp);
+
+										}
+										else if(k.Key.Trim() == "Ambient Temp (C)"){
+											sensorTag.ambienttemp = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.ambienttemp);
+
+										}
+										else if(k.Key.Trim() == "Gyro Y (deg per sec)"){
+											sensorTag.gyroy = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.gyroy);
+
+										}
+										else if(k.Key.Trim() == "myName"){
+											sensorTag.name = k.Key + ": " + valu.S;
+
+											//Debug.Log(sensorTag.name);
+
+										}
+										else if(k.Key.Trim() == "Acc X (G)"){
+											sensorTag.accx = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.accx);
+
+										}
+										else if(k.Key.Trim() == "Battery Volt (mV)"){
+											sensorTag.batteryvolt = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.batteryvolt);
+
+										}
+										else if(k.Key.Trim() == "Acc Z (G)"){
+											sensorTag.accz = k.Key + ": " + valu.N;
+
+											//Debug.Log(sensorTag.accz);
+
+										}
+				
 									}
 								}
 
 							}
-							//if(value.M.Values)
-							//Debug.Log(value.M.Values);
 
 						}
 					}
-					Debug.Log 
-						(
-							"\n" + attributeName + " " +
-							(value.S == null ? "" : "S=[" + value.S + "]") +
-							(value.N == null ? "" : "N=[" + value.N + "]") +
-							(value.SS == null ? "" : "SS=[" + string.Join(",", value.SS.ToArray()) + "]") +
-							(value.NS == null ? "" : "NS=[" + string.Join(",", value.NS.ToArray()) + "]")
-						);
+				
 				}
+				allSensorTags.Add(sensorTag);
 
 			}
+			displaySensorData(allSensorTags);
 		});
 	}
 
@@ -247,7 +382,7 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 				}
 				allSnortData.Add(snortData);
 			}
-			//displaySnortData(allSnortData);
+			displaySnortData(allSnortData);
 		});
 	}
 

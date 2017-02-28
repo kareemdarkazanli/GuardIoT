@@ -52,6 +52,7 @@
      <Compile Include="Assets\Examples\LowLevelTableExample.cs" />
      <Compile Include="Assets\Examples\TableQueryAndScanExample.cs" />
      <Compile Include="Assets\Scripts\AWSDynamoDBConnection.cs" />
+     <Compile Include="Assets\Scripts\SensorTag.cs" />
      <Compile Include="Assets\Scripts\SnortData.cs" />
      <None Include="Assets\Plugins\Android\AndroidManifest.xml" />
      <None Include="Assets\Examples\License.txt" />
