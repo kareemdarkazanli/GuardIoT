@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class SensorTag : MonoBehaviour {
+	public int tagNumber;
 	public string accx;
 	public string accy;
 	public string accz;
 	public string airpressure;
 	public string airtemp;
 	public string ambienttemp;
-	public string batterytemsp;
+	public string batterytemp;
 	public string batteryvolt;
 	public string defroute;
 	public string gyrox;
