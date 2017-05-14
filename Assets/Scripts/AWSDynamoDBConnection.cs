@@ -35,6 +35,7 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 	public GameObject RaspberryPiPanel;
 	public GameObject RaspberryPiPrefab;
 	public Canvas canvas;
+	public GameObject _Rpi;
 
 	public GameObject ScrollView;
 
@@ -48,22 +49,30 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 	AmazonDynamoDBClient client;
 
 	List<SnortData> allSnortData;
+	List<SensorTag> allSensorTag;
+
 
 	List<GameObject> sensorTags = new List<GameObject>();
 	List<GameObject> sensorData = new List<GameObject>();
+	float timer = 90.0f;
+
+	private Color currentColor;
+	bool startTimer = false;
 
 
 	// Use this for initialization
 	void Start () {
 		ScrollView.GetComponent<ScrollRect> ().content = SensorTagDataPanel.GetComponent<RectTransform>();
 		UnityInitializer.AttachToGameObject (this.gameObject);
-		var credentials = new BasicAWSCredentials("AKIAJIFWBWNXDKUAHRWA", "nDRoggu6qHBO4Do2Qh6Gdr/laope1XK0YDAr3s5y");		
+		var credentials = new BasicAWSCredentials("UserName", "Password");		
 		client = new AmazonDynamoDBClient(credentials, RegionEndpoint.USWest2);
 		RetrieveRaspberryPis ();
 	}
 
 	void Update(){
-		
+		if (startTimer) {
+			timer -= Time.deltaTime;
+		}
 	}
 
 
@@ -73,11 +82,11 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 
 	public void SpawnSensorTags(List<RaspberryPi> allRaspberryPis){
 
-		GameObject _Rpi = Instantiate (Rpi, new Vector3 (0, 0, 0), Quaternion.Euler(0, 0, 0)) as GameObject;
-		_Rpi.transform.GetChild(0).GetComponentInChildren<Button> ().GetComponentInChildren<Text> ().text = allRaspberryPis[0].defRoute;
-		_Rpi.transform.GetChild (0).GetChild (1).GetComponentInChildren<Text> ().text = allSnortData[0].alert;
-		Debug.Log(allRaspberryPis[0].defRoute);
-		_Rpi.GetComponent<Renderer> ().material.color = Color.red;
+		_Rpi = Instantiate (Rpi, new Vector3 (0, 0, 0), Quaternion.Euler(0, 0, 0)) as GameObject;
+		_Rpi.transform.GetChild(0).GetComponentInChildren<Button> ().GetComponentInChildren<Text> ().text = allSnortData[0].sensor;
+		_Rpi.transform.GetChild (0).GetChild (1).GetComponentInChildren<Text> ().text = "System is safe";
+		_Rpi.GetComponent<Renderer> ().material.color = Color.green;
+		currentColor = Color.green;
 
 		float scew = 1.0f;
 		float offset = 0f;
@@ -91,17 +100,19 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 			var cosOfAngle = scew * 270 * Mathf.Cos(i * (360/12) * Mathf.Deg2Rad + offset);
 
 			GameObject _SensorTag = Instantiate (SensorTag, new Vector3 (sinOfAngle, 0, cosOfAngle), Quaternion.Euler(0, 0, 0)) as GameObject;
-			_SensorTag.transform.GetChild(0).GetComponentInChildren<Button> ().GetComponentInChildren<Text> ().text = allRaspberryPis[0].sensorTags [i].name;
+			_SensorTag.transform.GetChild(0).GetComponentInChildren<Button> ().GetComponentInChildren<Text> ().text = allRaspberryPis[0].sensorTags [i].shortName;
 			_SensorTag.transform.GetChild (0).GetChild (1).GetComponentInChildren<Text> ().text = sensortag.airtemp;
 			_SensorTag.transform.GetChild (0).GetChild (2).GetComponentInChildren<Text> ().text = sensortag.airpressure;
-			_SensorTag.transform.GetChild (0).GetChild (3).GetComponentInChildren<Text> ().text = sensortag.batterytemp;
-			_SensorTag.GetComponent<Renderer> ().material.color = Color.red;
+			_SensorTag.transform.GetChild (0).GetChild (3).GetComponentInChildren<Text> ().text = sensortag.seq;
+			_SensorTag.GetComponent<Renderer> ().material.color = Color.green;
 			_SensorTag.transform.GetChild (1).GetComponent<ParticleSystem> ().GetComponent<ParticleMovement>().target = _Rpi.transform;
 			float rotate = i * (360 / 12) + 100;
 			_SensorTag.transform.GetChild (1).GetComponent<ParticleSystem> ().transform.rotation = Quaternion.Euler(0, rotate, 0);
+			var em = _SensorTag.transform.GetChild (1).GetComponent<ParticleSystem> ().emission;
+			em.enabled = false;
+			//em.enabled = true;
 
 			_SensorTag.transform.GetChild(0).GetComponentInChildren<Button> ().onClick.AddListener(delegate () {
-				Debug.Log(sensortag.tagNumber);
 				currentTag = sensortag.tagNumber;
 				currentSensorTag = sensortag;
 				displayCanvas();
@@ -109,14 +120,135 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 			});
 
 			sensorTags.Add (_SensorTag);
-			Debug.Log (cosOfAngle + "," + sinOfAngle);
-			Debug.Log (sensortag.name + " :" + i * (360/12));
 			i++;
 
 		}
 
-		InvokeRepeating("getData", 0f, 0.01f);
+		InvokeRepeating("getData", 0f, 2f);
+		InvokeRepeating ("updateSystemColor", 0f, 5f);
 
+	}
+
+	public void countdown(){
+		if (timer == 0) {
+			timer = 30;
+		} else if (timer == 30) {
+			timer = 0;
+		}
+	}
+		
+	public void updateSystemColor(){
+		SnortData oldSnort = new SnortData();
+		oldSnort.eventTimeStamp = allSnortData [0].eventTimeStamp;
+
+		var request = new ScanRequest
+		{
+			TableName = "Snort",
+		};
+
+		client.ScanAsync(request,(result)=>{
+			allSnortData = new List<SnortData>();
+			foreach (var item in result.Response.Items)
+			{
+				SnortData snortData = new SnortData();
+
+				foreach (var kvp in item)
+				{
+					string attributeName = kvp.Key;
+					AttributeValue value = kvp.Value;
+					if(attributeName == "sensor")
+					{
+						snortData.sensor = value.S;
+					}
+					else if(attributeName == "order"){
+						snortData.order = value.S;
+					}
+					else if(attributeName == "alert")
+					{
+						snortData.alert = value.S;
+
+					}
+					else if(attributeName == "alertPriority"){
+						snortData.alertPriority = value.S;
+					}
+					else if(attributeName == "eventTimeStamp")
+					{
+						snortData.eventTimeStamp = value.S;
+					}
+				}
+				allSnortData.Add(snortData);
+			}
+			if(oldSnort.eventTimeStamp == allSnortData[0].eventTimeStamp){
+				if(timer < 0){
+					_Rpi.GetComponent<Renderer> ().material.color = Color.green;
+					foreach(GameObject sensorTag in sensorTags){
+						//sensorTag.GetComponent<Renderer> ().material.color = Color.green;
+						sensorTag.GetComponent<Renderer> ().material.color = Color.green;
+					}
+					timer = 90.0f;
+					startTimer = false;
+					_Rpi.transform.GetChild (0).GetChild (1).GetComponentInChildren<Text> ().text = "System is safe";
+
+				}
+				//_Rpi.GetComponent<Renderer> ().material.color = Color.green;
+				/*_Rpi.GetComponent<Renderer> ().material.color = currentColor;
+				foreach(GameObject sensorTag in sensorTags){
+					//sensorTag.GetComponent<Renderer> ().material.color = Color.green;
+					sensorTag.GetComponent<Renderer> ().material.color = currentColor;
+				}*/
+			}
+			else if (allSnortData[0].alertPriority == "4"){
+				_Rpi.GetComponent<Renderer> ().material.color = Color.green;
+				foreach(GameObject sensorTag in sensorTags){
+					sensorTag.GetComponent<Renderer> ().material.color = Color.green;
+				}
+				currentColor = Color.green;
+				_Rpi.transform.GetChild (0).GetChild (1).GetComponentInChildren<Text> ().text = allSnortData[0].alert;
+				timer = 90.0f;
+				startTimer = true;
+
+			}
+			else if(allSnortData[0].alertPriority == "3"){
+				_Rpi.GetComponent<Renderer> ().material.color = Color.yellow;
+				foreach(GameObject sensorTag in sensorTags){
+					sensorTag.GetComponent<Renderer> ().material.color = Color.yellow;
+
+				}
+				currentColor = Color.yellow;
+				_Rpi.transform.GetChild (0).GetChild (1).GetComponentInChildren<Text> ().text = allSnortData[0].alert;
+				timer = 90.0f;
+				startTimer = true;
+
+
+			}
+			else if(allSnortData[0].alertPriority == "2"){
+				_Rpi.GetComponent<Renderer> ().material.color = Color.red;
+				foreach(GameObject sensorTag in sensorTags){
+					sensorTag.GetComponent<Renderer> ().material.color = Color.red;
+
+				}
+				currentColor = Color.red;
+				_Rpi.transform.GetChild (0).GetChild (1).GetComponentInChildren<Text> ().text = allSnortData[0].alert;
+				timer = 90.0f;
+				startTimer = true;
+
+
+			}
+			else {
+				_Rpi.GetComponent<Renderer> ().material.color = Color.black;
+				foreach(GameObject sensorTag in sensorTags){
+					sensorTag.GetComponent<Renderer> ().material.color = Color.black;
+
+				}
+				currentColor = Color.black;
+				_Rpi.transform.GetChild (0).GetChild (1).GetComponentInChildren<Text> ().text = allSnortData[0].alert;
+				timer = 90.0f;
+				startTimer = true;
+
+
+			}
+
+		});
 
 	}
 
@@ -134,7 +266,6 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 			rpi.transform.GetChild(0).GetComponent<Text>().text = raspberryPi.defRoute;
 			rpi.GetComponent<Button>().onClick.AddListener(delegate () {
 				
-				Debug.Log(raspberryPi.defRoute);
 			});
 		}
 
@@ -150,7 +281,6 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 
 	public void displaySensorData(){
 
-		Debug.Log ("Here");
 		foreach (Transform childTransform in SensorTagPanel.transform)
 		{
 			Destroy(childTransform.gameObject);
@@ -159,140 +289,90 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 		GameObject accX = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		accX.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (accX);
-		//accX.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.accx;
 
 		GameObject accY = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		accY.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (accY);
 
-		//accY.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.accy;
-
 		GameObject accZ = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		accZ.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (accZ);
-
-		//accZ.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.accz;
 
 		GameObject airpressure = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		airpressure.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (airpressure);
 
-		//airpressure.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.airpressure;
-
 		GameObject airtemp = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		airtemp.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (airtemp);
-
-		//airtemp.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.airtemp;
 
 		GameObject ambienttemp = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		ambienttemp.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (ambienttemp);
 
-		//ambienttemp.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.ambienttemp;
-
-
 		GameObject batterytemp = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		batterytemp.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (batterytemp);
-
-		//batterytemp.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.batterytemp;
-
 
 		GameObject batteryvolt = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		batteryvolt.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (batteryvolt);
 
-		//batteryvolt.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.batteryvolt;
-
 		GameObject defroute = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		defroute.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (defroute);
-
-		//defroute.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.defroute;
 
 		GameObject gyrox = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		gyrox.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (gyrox);
 
-		//gyrox.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.gyrox;
-
 		GameObject gyroy = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		gyroy.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (gyroy);
-
-		//gyroy.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.gyroy;
-
 
 
 		GameObject gyroz = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		gyroz.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (gyroz);
 
-		//gyroz.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.gyroz;
-
 
 		GameObject hdchumidity = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		hdchumidity.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (hdchumidity);
-
-		//hdchumidity.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.hdchumidity;
 
 
 		GameObject hdctemp = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		hdctemp.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (hdctemp);
 
-		//hdctemp.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.hdctemp;
-
-
 
 		GameObject light = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		light.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (light);
-
-		//light.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.light;
-
 
 
 		GameObject name = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		name.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (name);
 
-		//name.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.name;
-
-
-
 		GameObject objecttemp = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		objecttemp.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (objecttemp);
-
-		//objecttemp.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.objecttemp;
-
 
 
 		GameObject rssi = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		rssi.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (rssi);
 
-		//rssi.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.rssi;
-
-
 
 		GameObject seq = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		seq.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (seq);
 
-		//seq.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.seq;
-
-
 
 		GameObject uptime = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 		uptime.transform.SetParent(SensorTagDataPanel.transform, false);
 		sensorData.Add (uptime);
-
-		//uptime.transform.GetComponentInChildren<Text> ().text = "\t" + sensorTag.uptime;
-
 
 	}
 
@@ -311,7 +391,6 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 			GameObject option = (GameObject)GameObject.Instantiate (SensorTagDataPrefab);
 			option.transform.SetParent(SensorTagDataPanel.transform, false);
 
-			Debug.Log (i + ": " +snortData.sensor);
 
 
 			//Debug.Log (snortData.sensor);
@@ -346,21 +425,9 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 		[DynamoDBProperty]
 		public string alert { get; set; }
 		[DynamoDBProperty]
-		public string alertClass { get; set; }
-		[DynamoDBProperty]
 		public int alertPriority { get; set; }
 		[DynamoDBProperty]
-		public string destinationIP { get; set; }
-		[DynamoDBProperty]
-		public int destinationPort { get; set; }
-		[DynamoDBProperty]
 		public string eventTimeStamp { get; set; }
-		[DynamoDBProperty]
-		public int protocol { get; set; }
-		[DynamoDBProperty]
-		public string sourceIP { get; set; }
-		[DynamoDBProperty]
-		public int sourcePort { get; set; }
 	}
 
 
@@ -371,7 +438,6 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 
 	private void RetrieveRaspberryPis()
 	{
-		Debug.Log ("Here");
 		var request = new ScanRequest
 		{
 			TableName = "SensorTag",
@@ -394,12 +460,10 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 					AttributeValue value = kvp.Value;
 					if(attributeName == "defRoute"){
 						rpi.defRoute = value.S;
-						Debug.Log(rpi.defRoute);
 
 					}
 					else if(attributeName == "myName"){
 						rpi.myName = value.S;
-						Debug.Log(rpi.myName);
 
 					}
 					if(value.IsMSet){
@@ -506,7 +570,8 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 
 										}
 										else if(k.Key.Trim() == "myName"){
-											sensorTag.name = k.Key + ": " + valu.S;
+											sensorTag.shortName = valu.S + "";
+											sensorTag.name = k.Key + ": " + sensorTag.shortName;
 
 											//Debug.Log(sensorTag.name);
 
@@ -544,7 +609,6 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 			}
 			rpi.sensorTags = allSensorTags;
 			allRaspberryPis.Add(rpi);
-			Debug.Log(allSensorTags.Count);
 			//displayRaspberryPis(allRaspberryPis);
 			RetrieveSnortData(allRaspberryPis);
 		});
@@ -681,7 +745,8 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 
 										}
 										else if(k.Key.Trim() == "myName"){
-											sensorTag.name = k.Key + ": " + valu.S;
+											sensorTag.shortName = valu.S + "";
+											sensorTag.name = k.Key + ": " + sensorTag.shortName;
 
 											//Debug.Log(sensorTag.name);
 
@@ -717,10 +782,11 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 				allSensorTags.Add(sensorTag);
 
 			}
+			List<SensorTag> oldSensorTags = rpi.sensorTags;
 			rpi.sensorTags = allSensorTags;
 			allRaspberryPis.Add(rpi);
 			if(!canvas.isActiveAndEnabled){
-				updateSensorTags(allRaspberryPis);
+				updateSensorTags(allRaspberryPis, oldSensorTags);
 			}
 			else{
 				//displaySensorData(currentSensorTag);
@@ -731,7 +797,6 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 
 	public void test(List<RaspberryPi> allRaspberryPis){
 		sensorData[0].transform.GetComponentInChildren<Text> ().text = "\t" + allRaspberryPis[0].sensorTags [currentTag].accx;
-		Debug.Log ("\t" + allRaspberryPis[0].sensorTags [currentTag].accx);
 		sensorData[1].transform.GetComponentInChildren<Text> ().text = "\t" + allRaspberryPis[0].sensorTags [currentTag].accy;
 		sensorData[2].transform.GetComponentInChildren<Text> ().text = "\t" + allRaspberryPis[0].sensorTags [currentTag].accz;
 
@@ -759,7 +824,6 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 		sensorData[13].transform.GetComponentInChildren<Text> ().text = "\t" + allRaspberryPis[0].sensorTags [currentTag].hdctemp;
 		sensorData[14].transform.GetComponentInChildren<Text> ().text = "\t" + allRaspberryPis[0].sensorTags [currentTag].light;
 		sensorData[15].transform.GetComponentInChildren<Text> ().text = "\t" + allRaspberryPis[0].sensorTags [currentTag].name;
-		//Debug.Log (SensorTagDataPanel.transform.GetChild (12).GetComponentInChildren<Text> ().text);
 
 		sensorData[16].transform.GetComponentInChildren<Text> ().text = "\t" + allRaspberryPis[0].sensorTags [currentTag].objecttemp;
 		sensorData[17].transform.GetComponentInChildren<Text> ().text = "\t" + allRaspberryPis[0].sensorTags [currentTag].rssi;
@@ -769,17 +833,30 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 
 	}
 
-	public void updateSensorTags(List<RaspberryPi> allRaspberryPis){
+	public void updateSensorTags(List<RaspberryPi> allRaspberryPis, List<SensorTag> oldSensorTags){
 		if (allRaspberryPis [0].sensorTags.Count == sensorTags.Count) {
 			int i = 0;
+
 			foreach(GameObject sensorTag in sensorTags){
+				if(sensorTag.transform.GetChild (0).GetChild (3).GetComponentInChildren<Text> ().text == allRaspberryPis[0].sensorTags [i].seq){
+					var em = sensorTag.transform.GetChild (1).GetComponent<ParticleSystem> ().emission;
+					em.enabled = false;	
+					//em.enabled = true;				
+
+				}
+				else{
+					var em = sensorTag.transform.GetChild (1).GetComponent<ParticleSystem> ().emission;
+					em.enabled = true;				
+				}
 				sensorTag.transform.GetChild (0).GetChild (1).GetComponentInChildren<Text> ().text = allRaspberryPis[0].sensorTags [i].airtemp;
 				sensorTag.transform.GetChild (0).GetChild (2).GetComponentInChildren<Text> ().text = allRaspberryPis[0].sensorTags [i].airpressure;
-				sensorTag.transform.GetChild (0).GetChild (3).GetComponentInChildren<Text> ().text = allRaspberryPis[0].sensorTags [i].batterytemp;
+				sensorTag.transform.GetChild (0).GetChild (3).GetComponentInChildren<Text> ().text = allRaspberryPis[0].sensorTags [i].seq;
+
 				i++;
 			}
-			//print ("updated");
 		}
+
+
 	}
 
 	private void RetrieveSnortData(List<RaspberryPi> allRaspberryPis)
@@ -804,64 +881,28 @@ public class AWSDynamoDBConnection : MonoBehaviour {
 						snortData.sensor = value.S;
 					}
 					else if(attributeName == "order"){
-						Int32.TryParse(value.N, out snortData.order);
-						Debug.Log("order added");
-
-					}
-					else if(attributeName == "alertPriority"){
-						Int32.TryParse(value.N, out snortData.alertPriority);
-						Debug.Log("alertPriority added");
-
-					}
-					else if(attributeName == "destinationPort"){
-						Int32.TryParse(value.N, out snortData.destinationPort);
-						Debug.Log("destinationPort added");
-
-					}
-					else if(attributeName == "protocol"){
-						Int32.TryParse(value.N, out snortData.protocol);
-						Debug.Log("protocol added");
-
-					}
-					else if(attributeName == "sourcePort"){
-						Int32.TryParse(value.N, out snortData.sourcePort);
-						Debug.Log("sourcePort added");
-
+						snortData.order = value.S;
 					}
 					else if(attributeName == "alert")
 					{
 						snortData.alert = value.S;
-						Debug.Log("alert added");
 
 					}
-					else if(attributeName == "alertClass")
-					{
-						snortData.alertClass = value.S;
-						Debug.Log("alertClass added");
-
-					}
-					else if(attributeName == "destinationIP")
-					{
-						snortData.destinationIP = value.S;
-						Debug.Log("destinationIP added");
+					else if(attributeName == "alertPriority"){
+						snortData.alertPriority = value.S;
 
 					}
 					else if(attributeName == "eventTimeStamp")
 					{
 						snortData.eventTimeStamp = value.S;
-						Debug.Log("eventTimeStamp added");
 
 					}
-					else if(attributeName == "sourceIP")
-					{
-						snortData.sourceIP = value.S;
-						Debug.Log("sourceIP added");
 
-					}
 
 				}
 				allSnortData.Add(snortData);
 			}
+			Debug.Log(allSnortData.Count);
 			SpawnSensorTags(allRaspberryPis);
 
 		});

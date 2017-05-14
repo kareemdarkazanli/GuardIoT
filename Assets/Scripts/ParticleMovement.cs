@@ -12,8 +12,6 @@ public class ParticleMovement : MonoBehaviour {
 	// Use this for initialization
 	void Start () {
 		ps = GetComponent<ParticleSystem> ();
-
-		Debug.Log (ps.name);
 	}
 	
 	// Update is called once per frame

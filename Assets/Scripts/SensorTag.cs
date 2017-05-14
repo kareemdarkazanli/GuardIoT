@@ -24,4 +24,5 @@ public class SensorTag : MonoBehaviour {
 	public string rssi;
 	public string seq;
 	public string uptime;
+	public string shortName;
 }
